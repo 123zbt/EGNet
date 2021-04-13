@@ -27,8 +27,8 @@ def main(config):
 
 if __name__ == '__main__':
 
-    vgg_path = '/home/liuj/code/Messal/weights/vgg16_20M.pth'
-    resnet_path = '/home/liuj/code/Messal/weights/resnet50_caffe.pth'
+    vgg_path = './vgg16_20M.pth'
+    resnet_path = './resnet50_caffe.pth'
 
     parser = argparse.ArgumentParser()
 

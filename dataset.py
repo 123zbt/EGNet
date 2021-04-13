@@ -15,8 +15,8 @@ import random
 class ImageDataTrain(data.Dataset):
     def __init__(self):
 
-        self.sal_root = '/home/liuj/dataset/DUTS/DUTS-TR'
-        self.sal_source = '/home/liuj/dataset/DUTS/DUTS-TR/train_pair_edge.lst'
+        self.sal_root = './DUTS-TR'
+        self.sal_source = './DUTS-TR/train_pair_edge.lst'
 
         with open(self.sal_source, 'r') as f:
             self.sal_list = [x.strip() for x in f.readlines()]
