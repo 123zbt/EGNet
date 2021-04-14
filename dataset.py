@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import os
 from PIL import Image
 import cv2
@@ -24,7 +26,7 @@ class ImageDataTrain(data.Dataset):
         self.sal_num = len(self.sal_list)
 
 
-    def __getitem__(self, item):
+    def __getitem__(self, item): # 定义这个方法，那么这个类就能像数组那样按照下标随机读取
 
 
         sal_image = load_image(os.path.join(self.sal_root, self.sal_list[item%self.sal_num].split()[0]))

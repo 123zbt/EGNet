@@ -1,3 +1,4 @@
+# coding: utf-8
 import torch
 from torch import nn
 from torch.nn import init
@@ -139,7 +140,7 @@ def extra_layer(base_model_cfg, vgg):
     if base_model_cfg == 'vgg':
         config = config_vgg
     elif base_model_cfg == 'resnet':
-        config = config_resnet
+        config = config_resnet # 这里整出来的东西应该是算什么，算resnet的整体结构吗
     merge1_layers = MergeLayer1(config['merge1'])
     merge2_layers = MergeLayer2(config['merge2'])
 

@@ -1,3 +1,4 @@
+# coding: utf-8
 import argparse
 import os
 from dataset import get_loader
@@ -6,9 +7,9 @@ from solver import Solver
 
 def main(config):
     if config.mode == 'train':
-        train_loader, dataset = get_loader(config.batch_size, num_thread=config.num_thread)
+        train_loader, dataset = get_loader(config.batch_size, num_thread=config.num_thread) # 加载图片数据集
         run = "nnet"
-        if not os.path.exists("%s/run-%s" % (config.save_fold, run)): 
+        if not os.path.exists("%s/run-%s" % (config.save_fold, run)):  # 判断是否又存模型的路径，没有就建一个
             os.mkdir("%s/run-%s" % (config.save_fold, run))
             os.mkdir("%s/run-%s/logs" % (config.save_fold, run))
             os.mkdir("%s/run-%s/models" % (config.save_fold, run))
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_thread', type=int, default=4)
     parser.add_argument('--load_bone', type=str, default='')
     # parser.add_argument('--load_branch', type=str, default='')
-    parser.add_argument('--save_fold', type=str, default='./EGNet')
+    parser.add_argument('--save_fold', type=str, default='./EGNet') # palce to save the trained mode
     # parser.add_argument('--epoch_val', type=int, default=20)
     parser.add_argument('--epoch_save', type=int, default=1) # 2, now x3
     parser.add_argument('--epoch_show', type=int, default=1)

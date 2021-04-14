@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import torch
 from collections import OrderedDict
 from torch.nn import utils, functional as F
@@ -42,7 +44,7 @@ class Solver(object):
         self.mean = torch.Tensor([123.68, 116.779, 103.939]).view(3, 1, 1) / 255.
         # inference: choose the side map (see paper)
         if config.visdom:
-            self.visual = Viz_visdom("trueUnify", 1)
+            self.visual = Viz_visdom("trueUnify", 1) # 好像是可视化啥的
         self.build_model()
         if self.config.pre_trained: self.net.load_state_dict(torch.load(self.config.pre_trained))
         if config.mode == 'train':
@@ -71,8 +73,8 @@ class Solver(object):
         return ml
 
     # build the network
-    def build_model(self):
-        self.net_bone = build_model(base_model_cfg)
+    def build_model(self): # 构建模型
+        self.net_bone = build_model(base_model_cfg) # 骨干网络，这里使用的是resnet
         if self.config.cuda:
             self.net_bone = self.net_bone.cuda()
             
@@ -136,7 +138,7 @@ class Solver(object):
    
     # training phase
     def train(self):
-        iter_num = len(self.train_loader.dataset) // self.config.batch_size
+        iter_num = len(self.train_loader.dataset) // self.config.batch_size # 迭代次数
         aveGrad = 0
         F_v = 0
         if not os.path.exists(tmp_path): 
@@ -144,19 +146,20 @@ class Solver(object):
         for epoch in range(self.config.epoch):                          
             r_edge_loss, r_sal_loss, r_sum_loss= 0,0,0
             self.net_bone.zero_grad()
-            for i, data_batch in enumerate(self.train_loader):
+            for i, data_batch in enumerate(self.train_loader): # enumerate()将可遍历的数组对象转换为索引序列，同时列出数据下标和数据
                 sal_image, sal_label, sal_edge = data_batch['sal_image'], data_batch['sal_label'], data_batch['sal_edge']
-                if sal_image.size()[2:] != sal_label.size()[2:]:
+                # 那这么看就是显著图的label是对边缘有单独label的
+                if sal_image.size()[2:] != sal_label.size()[2:]: # 前两维，那就是图片大小和label不同的时候，就跳过不处理
                     print("Skip this batch")
                     continue
-                sal_image, sal_label, sal_edge = Variable(sal_image), Variable(sal_label), Variable(sal_edge)
+                sal_image, sal_label, sal_edge = Variable(sal_image), Variable(sal_label), Variable(sal_edge) # 给整成变量
                 if self.config.cuda: 
-                    sal_image, sal_label, sal_edge = sal_image.cuda(), sal_label.cuda(), sal_edge.cuda()
+                    sal_image, sal_label, sal_edge = sal_image.cuda(), sal_label.cuda(), sal_edge.cuda() # .cuda()是啥啊？ Returns a copy of this object in CUDA memory，就是给搞到CUDA中去
 
-                up_edge, up_sal, up_sal_f = self.net_bone(sal_image)
-                # edge part
-                edge_loss = []
-                for ix in up_edge:
+                up_edge, up_sal, up_sal_f = self.net_bone(sal_image) # 这个net_bone是骨干网络里来的，暂时还没有整明白
+                # edge part，这也是论文的第一部分，主要搞的就是边缘
+                edge_loss = [] # 应该是不同S，也就是不同旁路的loss
+                for ix in up_edge: # up_edge里面存的是啥，下面算的是交叉熵
                     edge_loss.append(bce2d_new(ix, sal_edge, reduction='sum'))
                 edge_loss = sum(edge_loss) / (nAveGrad * self.config.batch_size)
                 r_edge_loss += edge_loss.data
@@ -166,7 +169,7 @@ class Solver(object):
                 for ix in up_sal:
                     sal_loss1.append(F.binary_cross_entropy_with_logits(ix, sal_label, reduction='sum'))
 
-                for ix in up_sal_f:
+                for ix in up_sal_f: # 这个不知道是啥部分的loss
                     sal_loss2.append(F.binary_cross_entropy_with_logits(ix, sal_label, reduction='sum'))
                 sal_loss = (sum(sal_loss1) + sum(sal_loss2)) / (nAveGrad * self.config.batch_size)
               
@@ -178,12 +181,12 @@ class Solver(object):
 
                 if aveGrad % nAveGrad == 0:
        
-                    self.optimizer_bone.step()
-                    self.optimizer_bone.zero_grad()           
+                    self.optimizer_bone.step() # optimizer_bone就是Adama优化器，.step()应该就是一次优化
+                    self.optimizer_bone.zero_grad()  # 把梯度置0
                     aveGrad = 0
 
 
-                if i % showEvery == 0:
+                if i % showEvery == 0: # i是遍历到的图片的下标，那就是每50次打印下，但是为啥要把这三个loss置0，是因为这是一个batch？
 
                     print('epoch: [%2d/%2d], iter: [%5d/%5d]  ||  Edge : %10.4f  ||  Sal : %10.4f  ||  Sum : %10.4f' % (
                         epoch, self.config.epoch, i, iter_num,  r_edge_loss*(nAveGrad * self.config.batch_size)/showEvery,
@@ -206,25 +209,27 @@ class Solver(object):
             if epoch in lr_decay_epoch:
                 self.lr_bone = self.lr_bone * 0.1  
                 self.optimizer_bone = Adam(filter(lambda p: p.requires_grad, self.net_bone.parameters()), lr=self.lr_bone, weight_decay=p['wd'])
+                # requires_grad是pytorch中Tensor的一个通用属性，用于说明当前量是否需要在计算中保留对应的梯度信息
 
 
         torch.save(self.net_bone.state_dict(), '%s/models/final_bone.pth' % self.config.save_fold)
         
-def bce2d_new(input, target, reduction=None):
+def bce2d_new(input, target, reduction=None): #
     assert(input.size() == target.size())
-    pos = torch.eq(target, 1).float()
+    pos = torch.eq(target, 1).float() # 比较两个张量，这里和1、0比，那就是比值么。含义就是正确估计位置;注意torch.eq()输出的是一个Boolean的Tensor，最后再.float()之后就转化为0和1构成的了
     neg = torch.eq(target, 0).float()
     # ing = ((torch.gt(target, 0) & torch.lt(target, 1))).float()
 
     num_pos = torch.sum(pos)
     num_neg = torch.sum(neg)
+    # num_pos相比于num_neg来说会小很多
     num_total = num_pos + num_neg
 
-    alpha = num_neg  / num_total
-    beta = 1.1 * num_pos  / num_total
+    alpha = num_neg  / num_total # 接近1
+    beta = 1.1 * num_pos  / num_total # 很小，接近0. 最后乘neg加到到weight上，就说明更看重背景一些，背景值越多，权重就越大？？为啥呀
     # target pixel = 1 -> weight beta
     # target pixel = 0 -> weight 1-beta
-    weights = alpha * pos + beta * neg
+    weights = alpha * pos + beta * neg # weights最后就直接乘上损失函数
 
-    return F.binary_cross_entropy_with_logits(input, target, weights, reduction=reduction)
+    return F.binary_cross_entropy_with_logits(input, target, weights, reduction=reduction) # 计算二分类问题的交叉熵
 
