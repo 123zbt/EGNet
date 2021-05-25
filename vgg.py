@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn.functional as F
 
 # vgg16
-def vgg(cfg, i, batch_norm=False):
+def vgg(cfg, i, batch_norm=False): # 就是整vgg网络，vggD
     layers = []
     in_channels = i
     stage = 1
@@ -36,8 +36,8 @@ class vgg16(nn.Module):
         self.cfg = {'tun': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'], 'tun_ex': [512, 512, 512]}
         self.extract = [8, 15, 22, 29] # [3, 8, 15, 22, 29]
         self.extract_ex = [5]
-        self.base = nn.ModuleList(vgg(self.cfg['tun'], 3))
-        self.base_ex = vgg_ex(self.cfg['tun_ex'], 512)
+        self.base = nn.ModuleList(vgg(self.cfg['tun'], 3)) # base就是构建出来VGG16D的网络
+        self.base_ex = vgg_ex(self.cfg['tun_ex'], 512) # 加上三次上采样，但是大小和通道数都不变
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -54,7 +54,7 @@ class vgg16(nn.Module):
         tmp_x = []
         for k in range(len(self.base)):
             x = self.base[k](x)
-            if k in self.extract:
+            if k in self.extract: #
                 tmp_x.append(x)
         x = self.base_ex(x)
         tmp_x.append(x)
@@ -65,14 +65,15 @@ class vgg16(nn.Module):
         else:
             return tmp_x
 
-class vgg_ex(nn.Module):
+class vgg_ex(nn.Module): # 主要就是三次上采样，大小和通道数都不变
     def __init__(self, cfg, incs=512, padding=1, dilation=1):
+        # 'tun_ex': [512, 512, 512]
         super(vgg_ex, self).__init__()
         self.cfg = cfg
         layers = []
         for v in self.cfg:
             # conv2d = nn.Conv2d(incs, v, kernel_size=3, padding=4, dilation=4, bias=False)
-            conv2d = nn.Conv2d(incs, v, kernel_size=3, padding=padding, dilation=dilation, bias=False)
+            conv2d = nn.Conv2d(incs, v, kernel_size=3, padding=padding, dilation=dilation, bias=False) # 三次卷，大小不变，通道数也不变
             layers += [conv2d, nn.ReLU(inplace=True)]
             incs = v
         self.ex = nn.Sequential(*layers)

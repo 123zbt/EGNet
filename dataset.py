@@ -32,7 +32,7 @@ class ImageDataTrain(data.Dataset):
         sal_image = load_image(os.path.join(self.sal_root, self.sal_list[item%self.sal_num].split()[0]))
         sal_label = load_sal_label(os.path.join(self.sal_root, self.sal_list[item%self.sal_num].split()[1]))
         sal_edge = load_edge_label(os.path.join(self.sal_root, self.sal_list[item%self.sal_num].split()[2]))
-        sal_image, sal_label, sal_edge = cv_random_flip(sal_image, sal_label, sal_edge)
+        sal_image, sal_label, sal_edge = cv_random_flip(sal_image, sal_label, sal_edge) # 该方法就是随机反转图片
         sal_image = torch.Tensor(sal_image)
         sal_label = torch.Tensor(sal_label)
         sal_edge = torch.Tensor(sal_edge)
@@ -53,7 +53,7 @@ class ImageDataTest(data.Dataset):
             self.image_source = '/home/liuj/dataset/HED-BSDS_PASCAL/HED-BSDS/test.lst'
             
             
-        elif test_mode == 1:
+        elif test_mode == 1: # 在不同的测试集上进行测试
             if sal_mode == 'e':
                 self.image_root = '/home/liuj/dataset/saliency_test/ECSSD/Imgs/'
                 self.image_source = '/home/liuj/dataset/saliency_test/ECSSD/test.lst'
@@ -113,7 +113,7 @@ def get_loader(batch_size, mode='train', num_thread=1, test_mode=0, sal_mode='e'
     shuffle = False
     if mode == 'train':
         shuffle = True
-        dataset = ImageDataTrain()
+        dataset = ImageDataTrain() # 加载图片，注意其中有将图片随机翻转的操作
     else:
         dataset = ImageDataTest(test_mode=test_mode, sal_mode=sal_mode)
 
@@ -226,7 +226,7 @@ def skel_thres_transform(x, thres):
 def cv_random_flip(img, label, edge):
     flip_flag = random.randint(0, 1)
     if flip_flag == 1:
-        img = img[:,:,::-1].copy()
+        img = img[:,:,::-1].copy() # ::-1就是倒序输出，那么放在这里就是反转图片
         label = label[:,:,::-1].copy()
         edge = edge[:,:,::-1].copy()
     return img, label, edge

@@ -31,7 +31,7 @@ if __name__ == '__main__':
     vgg_path = './vgg16_20M.pth'
     resnet_path = './resnet50_caffe.pth'
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser() # 解析命令行字符
 
     # Hyper-parameters
     parser.add_argument('--n_color', type=int, default=3)

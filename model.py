@@ -10,7 +10,7 @@ import numpy as np
 from resnet import resnet50
 from vgg import vgg16
 
-
+# merge是长度为5的数组，最后两个是表示卷积核大小和步长
 config_vgg = {'convert': [[128,256,512,512,512],[64,128,256,512,512]], 'merge1': [[128, 256, 128, 3,1], [256, 512, 256, 3, 1], [512, 0, 512, 5, 2], [512, 0, 512, 5, 2],[512, 0, 512, 7, 3]], 'merge2': [[128], [256, 512, 512, 512]]}  # no convert layer, no conv6
 
 config_resnet = {'convert': [[64,256,512,1024,2048],[128,256,512,512,512]], 'deep_pool': [[512, 512, 256, 256, 128], [512, 256, 256, 128, 128], [False, True, True, True, False], [True, True, True, True, False]], 'score': 256, 'edgeinfo':[[16, 16, 16, 16], 128, [16,8,4,2]],'edgeinfoc':[64,128], 'block': [[512, [16]], [256, [16]], [256, [16]], [128, [16]]], 'fuse': [[16, 16, 16, 16], True], 'fuse_ratio': [[16,1], [8,1], [4,1], [2,1]],  'merge1': [[128, 256, 128, 3,1], [256, 512, 256, 3, 1], [512, 0, 512, 5, 2], [512, 0, 512, 5, 2],[512, 0, 512, 7, 3]], 'merge2': [[128], [256, 512, 512, 512]]}
@@ -40,28 +40,33 @@ class ConvertLayer(nn.Module):
 class MergeLayer1(nn.Module): # list_k: [[64, 512, 64], [128, 512, 128], [256, 0, 256] ... ]
     def __init__(self, list_k):
         super(MergeLayer1, self).__init__()
-        self.list_k = list_k
+        self.list_k = list_k # config['merge1']
+        # vgg [[128, 256, 128, 3,1], [256, 512, 256, 3, 1], [512, 0, 512, 5, 2], [512, 0, 512, 5, 2],[512, 0, 512, 7, 3]]
+        # resnet [[128, 256, 128, 3,1], [256, 512, 256, 3, 1], [512, 0, 512, 5, 2], [512, 0, 512, 5, 2],[512, 0, 512, 7, 3]] 都是一样的
         trans, up, score = [], [], []
         for ik in list_k:
-            if ik[1] > 0:
-                trans.append(nn.Sequential(nn.Conv2d(ik[1], ik[0], 1, 1, bias=False), nn.ReLU(inplace=True)))
+            if ik[1] > 0: # 输入通道判断是不是0
+                # conv2d函数中参数分别为：输入通道，输出通道，卷积核大小，步长
+                trans.append(nn.Sequential(nn.Conv2d(ik[1], ik[0], 1, 1, bias=False), nn.ReLU(inplace=True))) # 用1*1卷积换通道数目
 
-           
+            # 卷积的四个参数：in_channels, out_channels, kernel_size, stride, padding
+            # 怎么ik[0]和ik[2]值都是一样的，而且下面第一个卷积计算的输入输出的大小也是相同的；第二个和第三个卷积就是再卷一遍，上采样获得更多信息；
             up.append(nn.Sequential(nn.Conv2d(ik[0], ik[2], ik[3], 1, ik[4]), nn.ReLU(inplace=True), nn.Conv2d(ik[2], ik[2], ik[3], 1, ik[4]), nn.ReLU(inplace=True), nn.Conv2d(ik[2], ik[2], ik[3], 1, ik[4]), nn.ReLU(inplace=True)))
-            score.append(nn.Conv2d(ik[2], 1, 3, 1, 1))
+            score.append(nn.Conv2d(ik[2], 1, 3, 1, 1)) # 卷到一个通道上，应该是准备和针织图对比输出loss了
         trans.append(nn.Sequential(nn.Conv2d(512, 128, 1, 1, bias=False), nn.ReLU(inplace=True)))
         self.trans, self.up, self.score = nn.ModuleList(trans), nn.ModuleList(up), nn.ModuleList(score)
         self.relu =nn.ReLU()
 
-    def forward(self, list_x, x_size):
+    def forward(self, list_x, x_size): # 这个list_x就是给这层的输入x，若是resnet，通过convert转换下得到
         up_edge, up_sal, edge_feature, sal_feature = [], [], [], []
         
         
-        num_f = len(list_x)
-        tmp = self.up[num_f - 1](list_x[num_f-1])
+        num_f = len(list_x) # 得到的应该是b。不对
+        tmp = self.up[num_f - 1](list_x[num_f-1]) # 就是将对应层的上采样卷积拿出来卷上采样
         sal_feature.append(tmp)
         U_tmp = tmp
-        up_sal.append(F.interpolate(self.score[num_f - 1](tmp), x_size, mode='bilinear', align_corners=True))
+        # F.interpolate上采样到输入的大小
+        up_sal.append(F.interpolate(self.score[num_f - 1](tmp), x_size, mode='bilinear', align_corners=True)) # 算这层的loss
         
         for j in range(2, num_f ):
             i = num_f - j
@@ -89,6 +94,7 @@ class MergeLayer1(nn.Module): # list_k: [[64, 512, 64], [128, 512, 128], [256, 0
         
 class MergeLayer2(nn.Module): 
     def __init__(self, list_k):
+        # [[128], [256, 512, 512, 512]]
         super(MergeLayer2, self).__init__()
         self.list_k = list_k
         trans, up, score = [], [], []
@@ -160,13 +166,13 @@ class TUN_bone(nn.Module):
             self.merge2 = merge2_layers
 
         elif self.base_model_cfg == 'resnet':
-            self.convert = ConvertLayer(config_resnet['convert'])
+            self.convert = ConvertLayer(config_resnet['convert']) # 根据给出的参数构建resnet网络结构
             self.base = base
             self.merge1 = merge1_layers
             self.merge2 = merge2_layers
 
     def forward(self, x):
-        x_size = x.size()[2:]
+        x_size = x.size()[2:] # 应该就是h*w
         conv2merge = self.base(x)        
         if self.base_model_cfg == 'resnet':            
             conv2merge = self.convert(conv2merge)
@@ -178,7 +184,7 @@ class TUN_bone(nn.Module):
 # build the whole network
 def build_model(base_model_cfg='vgg'):
     if base_model_cfg == 'vgg':
-        return TUN_bone(base_model_cfg, *extra_layer(base_model_cfg, vgg16()))
+        return TUN_bone(base_model_cfg, *extra_layer(base_model_cfg, vgg16())) # *及后面代表的应该是将函数作为参数传入
     elif base_model_cfg == 'resnet':
         return TUN_bone(base_model_cfg, *extra_layer(base_model_cfg, resnet50()))
 

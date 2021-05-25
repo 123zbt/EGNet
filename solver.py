@@ -21,7 +21,7 @@ import scipy.io
 import os
 import logging
 EPSILON = 1e-8
-p = OrderedDict()
+p = OrderedDict() # 有序字典
 
 from dataset import get_loader
 base_model_cfg = 'resnet'
@@ -41,12 +41,12 @@ class Solver(object):
         self.test_loader = test_loader
         self.config = config
         self.save_fold = save_fold
-        self.mean = torch.Tensor([123.68, 116.779, 103.939]).view(3, 1, 1) / 255.
+        self.mean = torch.Tensor([123.68, 116.779, 103.939]).view(3, 1, 1) / 255. # view()用来改变Tensor的size
         # inference: choose the side map (see paper)
         if config.visdom:
             self.visual = Viz_visdom("trueUnify", 1) # 好像是可视化啥的
         self.build_model()
-        if self.config.pre_trained: self.net.load_state_dict(torch.load(self.config.pre_trained))
+        if self.config.pre_trained: self.net.load_state_dict(torch.load(self.config.pre_trained)) # 加载骨干网络参数
         if config.mode == 'train':
             self.log_output = open("%s/logs/log.txt" % config.save_fold, 'w')
         else:
@@ -57,7 +57,7 @@ class Solver(object):
     def print_network(self, model, name):
         num_params = 0
         for p in model.parameters():
-            num_params += p.numel()
+            num_params += p.numel() # 返回参数的数目，这里就是计算总的参数和
         print(name)
         print(model)
         print("The number of parameters: {}".format(num_params))
@@ -78,7 +78,7 @@ class Solver(object):
         if self.config.cuda:
             self.net_bone = self.net_bone.cuda()
             
-        self.net_bone.eval()  # use_global_stats = True
+        self.net_bone.eval()  # use_global_stats = True ？，在训练的时候为啥用这个
         self.net_bone.apply(weights_init)
         if self.config.mode == 'train':
             if self.config.load_bone == '':
@@ -149,7 +149,8 @@ class Solver(object):
             for i, data_batch in enumerate(self.train_loader): # enumerate()将可遍历的数组对象转换为索引序列，同时列出数据下标和数据
                 sal_image, sal_label, sal_edge = data_batch['sal_image'], data_batch['sal_label'], data_batch['sal_edge']
                 # 那这么看就是显著图的label是对边缘有单独label的
-                if sal_image.size()[2:] != sal_label.size()[2:]: # 前两维，那就是图片大小和label不同的时候，就跳过不处理
+                # 下面的说法是错的，2: 应该表达的是第三维及之后，那应该还是h和w
+                if sal_image.size()[2:] != sal_label.size()[2:]: # 前两维，那就是图片大小和label不同的时候，就跳过不处理(错误的)
                     print("Skip this batch")
                     continue
                 sal_image, sal_label, sal_edge = Variable(sal_image), Variable(sal_label), Variable(sal_edge) # 给整成变量
@@ -169,7 +170,7 @@ class Solver(object):
                 for ix in up_sal:
                     sal_loss1.append(F.binary_cross_entropy_with_logits(ix, sal_label, reduction='sum'))
 
-                for ix in up_sal_f: # 这个不知道是啥部分的loss
+                for ix in up_sal_f: # 这个不知道是啥部分的loss，这个应该是从边整合过来的loss
                     sal_loss2.append(F.binary_cross_entropy_with_logits(ix, sal_label, reduction='sum'))
                 sal_loss = (sum(sal_loss1) + sum(sal_loss2)) / (nAveGrad * self.config.batch_size)
               
@@ -179,14 +180,14 @@ class Solver(object):
                 loss.backward()
                 aveGrad += 1
 
-                if aveGrad % nAveGrad == 0:
+                if aveGrad % nAveGrad == 0: # nAveGrad表示的就应该是batch
        
                     self.optimizer_bone.step() # optimizer_bone就是Adama优化器，.step()应该就是一次优化
                     self.optimizer_bone.zero_grad()  # 把梯度置0
                     aveGrad = 0
 
 
-                if i % showEvery == 0: # i是遍历到的图片的下标，那就是每50次打印下，但是为啥要把这三个loss置0，是因为这是一个batch？
+                if i % showEvery == 0: # i是遍历到的图片的下标，那就是每50次打印下，但是为啥要把这三个loss置0，是因为这是一个batch？对的
 
                     print('epoch: [%2d/%2d], iter: [%5d/%5d]  ||  Edge : %10.4f  ||  Sal : %10.4f  ||  Sum : %10.4f' % (
                         epoch, self.config.epoch, i, iter_num,  r_edge_loss*(nAveGrad * self.config.batch_size)/showEvery,
