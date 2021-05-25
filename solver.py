@@ -145,7 +145,7 @@ class Solver(object):
             os.mkdir(tmp_path)
         for epoch in range(self.config.epoch):                          
             r_edge_loss, r_sal_loss, r_sum_loss= 0,0,0
-            self.net_bone.zero_grad()
+            self.net_bone.zero_grad() # 将梯度置0
             for i, data_batch in enumerate(self.train_loader): # enumerate()将可遍历的数组对象转换为索引序列，同时列出数据下标和数据
                 sal_image, sal_label, sal_edge = data_batch['sal_image'], data_batch['sal_label'], data_batch['sal_edge']
                 # 那这么看就是显著图的label是对边缘有单独label的

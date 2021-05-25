@@ -52,15 +52,15 @@ class vgg16(nn.Module):
 
     def forward(self, x, multi=0):
         tmp_x = []
-        for k in range(len(self.base)):
+        for k in range(len(self.base)): # 注意是conv和ReLu是拆开的
             x = self.base[k](x)
-            if k in self.extract: #
-                tmp_x.append(x)
-        x = self.base_ex(x)
-        tmp_x.append(x)
+            if k in self.extract:
+                tmp_x.append(x) # 这应该就是要抽取出来的层，对的就是要抽出来的，除了1-2之外的所有最后一层Relu
+        x = self.base_ex(x) # 对vgg新加的三层，但是
+        tmp_x.append(x) # 加上额外加的层，但是这样不是把conv也加进去了，相当于加进去3*2个层了
         if multi == 1:
             tmp_y = []
-            tmp_y.append(tmp_x[0])
+            tmp_y.append(tmp_x[0]) # 那就是只返回第一个
             return tmp_y
         else:
             return tmp_x
